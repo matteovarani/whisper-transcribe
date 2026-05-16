@@ -20,13 +20,24 @@ def format_timestamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
-def extract_audio(video_path: Path, audio_path: Path) -> None:
+def extract_audio(video_path: Path, audio_path: Path, denoise: bool = False) -> None:
     print(f"Estrazione audio da {video_path.name}...")
+
+    # loudnorm: normalizza il volume secondo lo standard EBU R128
+    # highpass: rimuove i bassi sotto 80Hz (rumori di fondo, ventole)
+    # dynaudnorm: normalizza dinamicamente picchi e cali di volume
+    filters = "highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11,dynaudnorm"
+    if denoise:
+        # afftdn: riduzione rumore FFT — utile per audio con fruscio/ambiente
+        filters = f"afftdn=nf=-25,{filters}"
+        print("  Riduzione rumore abilitata")
+
     result = subprocess.run(
         [
             "ffmpeg", "-y",
             "-i", str(video_path),
             "-vn",
+            "-af", filters,
             "-acodec", "pcm_s16le",
             "-ar", "16000",
             "-ac", "1",
@@ -126,6 +137,11 @@ def main() -> None:
         help="Device di inferenza (default: cpu)",
     )
     parser.add_argument(
+        "--denoise",
+        action="store_true",
+        help="Abilita riduzione rumore FFT (utile per audio con fruscio o rumore ambiente)",
+    )
+    parser.add_argument(
         "-o", "--output-dir",
         type=Path,
         default=None,
@@ -144,7 +160,7 @@ def main() -> None:
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
         audio_path = Path(tmp.name)
-        extract_audio(video_path, audio_path)
+        extract_audio(video_path, audio_path, denoise=args.denoise)
         segments, info = transcribe(audio_path, args.model, args.language, args.device)
 
     if not segments:
