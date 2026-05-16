@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.wav
+*.srt
+# output transcripts (but not requirements.txt)
+*.[eE][nN].txt
+*.[iI][tT].txt
+.DS_Store
