@@ -16,7 +16,7 @@ Produces:
 ## Installation
 
 ```bash
-git clone https://github.com/mvarani/whisper-transcribe.git
+git clone https://github.com/matteovarani/whisper-transcribe.git
 cd whisper-transcribe
 
 python -m venv venv
@@ -36,7 +36,10 @@ python transcribe.py video.mp4
 # Force source language (faster, more accurate)
 python transcribe.py video.mp4 --language en
 
-# Different model (tiny/base/small/medium/large-v2/large-v3)
+# Enable noise reduction (useful for low-quality or noisy audio)
+python transcribe.py video.mp4 --language en --denoise
+
+# Use a larger model for better accuracy on difficult audio
 python transcribe.py video.mp4 --language en --model large-v3
 
 # Translate to a different language
@@ -56,17 +59,29 @@ python transcribe.py video.mp4 --language en -o /path/to/output/
 | `-m` / `--model` | `medium` | Whisper model size |
 | `-l` / `--language` | auto | Source language code (`en`, `it`, `fr`, …) |
 | `--translate-to` | `it` | Target language for translation (`none` to skip) |
+| `--denoise` | off | Enable FFT noise reduction before transcription |
 | `--device` | `cpu` | `cpu` or `cuda` (NVIDIA GPU) |
 | `-o` / `--output-dir` | video folder | Output directory |
 
+## Audio preprocessing
+
+The script applies an audio filter chain via ffmpeg before transcription to improve recognition quality:
+
+1. **`highpass=f=80`** — removes low-frequency rumble (fans, AC units)
+2. **`loudnorm`** — normalizes volume to EBU R128 broadcast standard (fixes quiet audio)
+3. **`dynaudnorm`** — smooths dynamic volume changes throughout the video
+
+With `--denoise`, an additional FFT-based filter (`afftdn`) is applied to reduce background noise like hiss or ambient sound.
+
 ## Models
 
-| Model | Speed | Accuracy | VRAM |
-|-------|-------|----------|------|
-| `tiny` | fastest | lowest | ~1 GB |
-| `base` | fast | low | ~1 GB |
-| `small` | fast | medium | ~2 GB |
-| `medium` | moderate | good | ~5 GB |
-| `large-v3` | slow | best | ~10 GB |
+| Model | Speed (CPU) | Accuracy |
+|-------|-------------|----------|
+| `tiny` | very fast | low |
+| `base` | fast | low |
+| `small` | fast | medium |
+| `medium` *(default)* | moderate | good |
+| `large-v2` | slow | very good |
+| `large-v3` | slow | best |
 
-On CPU, `medium` with `int8` quantization is a good balance of speed and accuracy.
+On CPU, `medium` with `int8` quantization offers a good balance of speed and accuracy. Switch to `large-v3` only when `medium` produces clearly wrong results — it is significantly slower without a proportional quality gain in most cases.
